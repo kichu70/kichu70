@@ -1,0 +1,314 @@
+name: Generate Snake
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Generate github-contribution-grid-snake.svg
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: deepak-devhub
+          outputs: |
+            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Game HTML
+        run: |
+          mkdir -p dist
+          cat > dist/index.html << 'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width,initial-scale=1" />
+            <title>Generate Snake — Contributions Game</title>
+            <style>
+              :root {
+                --bg: #0b1220;
+                --panel: #0f1724;
+                --text: #e6eef8;
+                --accent: #4ade80;
+              }
+              html, body {
+                height: 100%;
+                margin: 0;
+                font-family: Inter, system-ui, Arial;
+              }
+              body {
+                background: #060b18;
+                color: var(--text);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+              }
+              .wrap {
+                width: 100%;
+                max-width: 960px;
+                background: rgba(255,255,255,0.03);
+                border-radius: 12px;
+                padding: 18px;
+              }
+              header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+              }
+              canvas {
+                background: var(--panel);
+                border-radius: 8px;
+                width: 100%;
+              }
+              .btn {
+                background: transparent;
+                border: 1px solid rgba(255,255,255,0.2);
+                padding: 6px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                color: white;
+              }
+              .stat {
+                margin-top: 10px;
+                font-size: 15px;
+              }
+              .overlay {
+                position: fixed; inset: 0;
+                background: rgba(0,0,0,0.7);
+                display: none;
+                align-items: center;
+                justify-content: center;
+              }
+              .dialog {
+                background: #111c33;
+                padding: 20px;
+                border-radius: 10px;
+                color: white;
+                width: 300px;
+                text-align: center;
+              }
+            </style>
+          </head>
+          <body>
+
+          <div class="wrap">
+            <header>
+              <h2>🐍 Contribution Snake Game</h2>
+              <div>
+                <button id="start" class="btn">Start</button>
+                <button id="reset" class="btn">Reset</button>
+                Speed <input id="speed" type="range" min="60" max="300" value="140">
+              </div>
+            </header>
+
+            <canvas id="game" width="700" height="350"></canvas>
+
+            <div class="stat" id="score">Score: 0</div>
+            <div class="stat" id="eaten">Contributions Eaten: 0</div>
+            <div class="stat" id="remaining">Remaining Foods: 0</div>
+          </div>
+
+          <div id="dialog" class="overlay">
+            <div class="dialog">
+              <h2 id="dialog-title"></h2>
+              <p id="dialog-body"></p>
+              <button id="close" class="btn">OK</button>
+            </div>
+          </div>
+
+          <script>
+          (async function () {
+            const canvas = document.getElementById("game");
+            const ctx = canvas.getContext("2d");
+
+            let board = null;
+            let foods = [];
+            let foodsMap = new Map();
+
+            let snake = [];
+            let running = false;
+            let dir = { x: 1, y: 0 };
+            let eaten = 0, score = 0;
+            let interval = null;
+
+            function show(text) {
+              console.log(text);
+            }
+
+            async function loadSVG() {
+              try {
+                let r = await fetch("github-contribution-grid-snake.svg");
+                if (!r.ok) return null;
+                let svg = await r.text();
+                return new DOMParser().parseFromString(svg, "image/svg+xml");
+              } catch {
+                return null;
+              }
+            }
+
+            function parseSVG(svgDoc) {
+              const rects = Array.from(svgDoc.querySelectorAll("rect"));
+              if (!rects.length) return null;
+
+              let cells = rects.map(r => ({
+                col: parseInt(r.getAttribute("x") / 12),
+                row: parseInt(r.getAttribute("y") / 12),
+                count: parseInt(r.getAttribute("data-count") || 0)
+              }));
+
+              let cols = Math.max(...cells.map(c => c.col)) + 1;
+              let rows = Math.max(...cells.map(c => c.row)) + 1;
+
+              return { cells, cols, rows };
+            }
+
+            let svg = await loadSVG();
+            board = svg ? parseSVG(svg) : null;
+
+            if (!board) {
+              board = { cols: 50, rows: 20, cells: [] };
+              show("Fallback demo grid");
+            }
+
+            foods = board.cells.filter(c => c.count > 0);
+            foodsMap = new Map(foods.map(f => [`${f.col},${f.row}`, f]));
+            document.getElementById("remaining").innerText = "Remaining Foods: " + foods.length;
+
+            // GAME RESET
+            function reset() {
+              snake = [{ col: 5, row: 5 }];
+              dir = { x: 1, y: 0 };
+              eaten = 0;
+              score = 0;
+              foodsMap = new Map(foods.map(f => [`${f.col},${f.row}`, f]));
+              updateStats();
+              draw();
+            }
+
+            function updateStats() {
+              document.getElementById("score").innerText = "Score: " + score;
+              document.getElementById("eaten").innerText = "Contributions Eaten: " + eaten;
+              document.getElementById("remaining").innerText = "Remaining Foods: " + foodsMap.size;
+            }
+
+            function draw() {
+              ctx.fillStyle = "#0e172a";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+              const cellW = canvas.width / board.cols;
+              const cellH = canvas.height / board.rows;
+
+              for (let [k, f] of foodsMap) {
+                ctx.fillStyle = "#4ade80";
+                ctx.fillRect(f.col * cellW, f.row * cellH, cellW - 1, cellH - 1);
+              }
+
+              snake.forEach((s, i) => {
+                ctx.fillStyle = i === 0 ? "yellow" : "orange";
+                ctx.fillRect(s.col * cellW, s.row * cellH, cellW - 1, cellH - 1);
+              });
+            }
+
+            function tick() {
+              let head = { ...snake[0] };
+              head.col += dir.x;
+              head.row += dir.y;
+
+              if (head.col < 0 || head.row < 0 ||
+                  head.col >= board.cols || head.row >= board.rows ||
+                  snake.some(s => s.col === head.col && s.row === head.row)) {
+                endGame(false, "You crashed!");
+                return;
+              }
+
+              snake.unshift(head);
+
+              let key = `${head.col},${head.row}`;
+              if (foodsMap.has(key)) {
+                let f = foodsMap.get(key);
+                eaten++;
+                score += f.count;
+                foodsMap.delete(key);
+                updateStats();
+
+                if (foodsMap.size === 0) {
+                  endGame(true, "All contributions eaten!");
+                  return;
+                }
+              } else {
+                snake.pop();
+              }
+
+              draw();
+            }
+
+            function endGame(win, msg) {
+              running = false;
+              clearInterval(interval);
+
+              document.getElementById("dialog-title").innerText = win ? "You Win!" : "Game Over";
+              document.getElementById("dialog-body").innerHTML =
+                `${msg}<br><br>Score: <b>${score}</b><br>Eaten: <b>${eaten}</b>`;
+              document.getElementById("dialog").style.display = "flex";
+            }
+
+            // Controls
+            window.onkeydown = (e) => {
+              const k = e.key.toLowerCase();
+              if ((k === "arrowup" || k === "w") && dir.y !== 1) dir = { x: 0, y: -1 };
+              if ((k === "arrowdown" || k === "s") && dir.y !== -1) dir = { x: 0, y: 1 };
+              if ((k === "arrowleft" || k === "a") && dir.x !== 1) dir = { x: -1, y: 0 };
+              if ((k === "arrowright" || k === "d") && dir.x !== -1) dir = { x: 1, y: 0 };
+            };
+
+            document.getElementById("start").onclick = () => {
+              if (!running) {
+                running = true;
+                let sp = parseInt(document.getElementById("speed").value);
+                interval = setInterval(tick, sp);
+              }
+            };
+
+            document.getElementById("reset").onclick = () => {
+              clearInterval(interval);
+              running = false;
+              reset();
+            };
+
+            document.getElementById("close").onclick = () => {
+              document.getElementById("dialog").style.display = "none";
+            };
+
+            reset();
+            draw();
+          })();
+          </script>
+
+          </body>
+          </html>
+          EOF
+
+      - name: Push output to branch
+        uses: crazy-max/ghaction-github-pages@v3
+        with:
+          target_branch: output
+          build_dir: dist
+          commit_message: "Update snake animation + game"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
