@@ -177,15 +177,6 @@ I focus on building **high-performance, user-friendly web applications** with mo
 
 </div>
 
----
-
-## 🐍 Contribution Snake
-
-<div align="center">
-
-![Snake animation](https://raw.githubusercontent.com/kichu70/kichu70/output/github-contribution-grid-snake.svg)
-
-</div>
 
 ---
 
