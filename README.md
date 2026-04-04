@@ -52,7 +52,7 @@ I focus on building **high-performance, user-friendly web applications** with mo
 
 ### 🔤 Languages
 <p>
-  <img src="https://skillicons.dev/icons?i=js,html,css&theme=dark" />
+  <img src="https://skillicons.dev/icons?i=js,ts,python,html,css&theme=dark" />
 </p>
 
 ### 🎨 Frontend
