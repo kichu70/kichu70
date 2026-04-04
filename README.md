@@ -26,9 +26,7 @@
 
 ---
 
-## 🚀 About Me
-
-## 👋 Hi, I'm **Muhammad Ansif** — MERN Stack Developer
+##  Hi, I'm **Muhammad Ansif** — MERN Stack Developer
 
 I'm a **Full Stack Developer from Calicut, Kerala**, with strong experience in the **MERN stack, React.js, and Next.js**.
 
