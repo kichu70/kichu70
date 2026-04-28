@@ -62,7 +62,7 @@ I focus on building **high-performance, user-friendly web applications** with mo
 
 ### ⚙️ Backend
 <p>
-  <img src="https://skillicons.dev/icons?i=nodejs,express,postman,django,ruby" />
+  <img src="https://skillicons.dev/icons?i=nodejs,express,postman,django,ruby,rail" />
 </p>
 
 ### 🗄️ Database
@@ -72,7 +72,7 @@ I focus on building **high-performance, user-friendly web applications** with mo
 
 ### 🛠️ Tools
 <p>
-  <img src="https://skillicons.dev/icons?i=git,github,postman,vscode,vercel" />
+  <img src="https://skillicons.dev/icons?i=git,github,postman,vscode,vercel,sqlyog" />
 </p>
 
 </div>
