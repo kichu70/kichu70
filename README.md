@@ -62,7 +62,7 @@ I focus on building **high-performance, user-friendly web applications** with mo
 
 ### ⚙️ Backend
 <p>
-  <img src="https://skillicons.dev/icons?i=nodejs,express,postman,django" />
+  <img src="https://skillicons.dev/icons?i=nodejs,express,postman,django,ruby" />
 </p>
 
 ### 🗄️ Database
